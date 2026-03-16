@@ -14,6 +14,7 @@ set "AUDIO_DIR=%DOWNLOAD_ROOT%\Music"
 set "PRIVATE_DIR=%SCRIPT_DIR%Private"
 set "YT_COOKIES=%PRIVATE_DIR%\youtube-cookies.txt"
 set "COOKIE_STORE_DIR=%PRIVATE_DIR%\Cookie Store"
+set "COOKIE_CONVERTER=%SCRIPT_DIR%cookie-convert.ps1"
 
 if not exist "%DOWNLOAD_ROOT%" mkdir "%DOWNLOAD_ROOT%"
 if not exist "%VIDEO_DIR%" mkdir "%VIDEO_DIR%"
@@ -66,6 +67,8 @@ if /I "%COMMAND%"=="browser-formats" goto browser_formats
 if /I "%COMMAND%"=="browser-single" goto browser_single
 if /I "%COMMAND%"=="account-status" goto account_status
 if /I "%COMMAND%"=="account-list" goto account_list
+if /I "%COMMAND%"=="account-convert" goto account_convert
+if /I "%COMMAND%"=="account-import" goto account_convert
 if /I "%COMMAND%"=="account-video" goto account_video
 if /I "%COMMAND%"=="account-mp3" goto account_mp3
 if /I "%COMMAND%"=="account-formats" goto account_formats
@@ -456,6 +459,58 @@ echo ACTIVE_COOKIE_FILE=%YT_COOKIES%
 echo ARCHIVED_FILE=%COOKIE_ARCHIVE_TARGET%
 exit /b 0
 
+:account_convert
+call :readtail 1 %*
+set "COOKIE_SOURCE_INPUT=%TAIL%"
+call :stripquotes COOKIE_SOURCE_INPUT
+if not defined COOKIE_SOURCE_INPUT goto missing_cookie_source
+if not exist "%COOKIE_CONVERTER%" (
+    echo STATUS=ERROR
+    echo MESSAGE=The cookie converter script is missing
+    echo COOKIE_CONVERTER=%COOKIE_CONVERTER%
+    exit /b 1
+)
+call :resolve_cookie_source COOKIE_SOURCE_INPUT COOKIE_SOURCE_PATH
+if not defined COOKIE_SOURCE_PATH (
+    echo STATUS=ERROR
+    echo MESSAGE=The requested cookie source file was not found
+    echo REQUESTED_COOKIE=%COOKIE_SOURCE_INPUT%
+    echo PRIVATE_DIR=%PRIVATE_DIR%
+    echo COOKIE_STORE_DIR=%COOKIE_STORE_DIR%
+    exit /b 2
+)
+set "COOKIE_BACKUP_TARGET="
+if exist "%YT_COOKIES%" if /I not "%COOKIE_SOURCE_PATH%"=="%YT_COOKIES%" (
+    call :make_cookie_timestamp
+    set "COOKIE_BACKUP_TARGET=%COOKIE_STORE_DIR%\active-before-import-!COOKIE_TIMESTAMP!.txt"
+    copy /y "%YT_COOKIES%" "%COOKIE_BACKUP_TARGET%" >nul
+    if errorlevel 1 (
+        echo STATUS=ERROR
+        echo MESSAGE=The current active cookie could not be backed up before importing
+        exit /b 1
+    )
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%COOKIE_CONVERTER%" -Source "%COOKIE_SOURCE_PATH%" -Target "%YT_COOKIES%" >nul
+set "COOKIE_CONVERT_EXIT=%errorlevel%"
+if not "%COOKIE_CONVERT_EXIT%"=="0" (
+    echo STATUS=ERROR
+    if "%COOKIE_CONVERT_EXIT%"=="2" echo MESSAGE=The source cookie file could not be found
+    if "%COOKIE_CONVERT_EXIT%"=="3" echo MESSAGE=The source cookie file was empty
+    if "%COOKIE_CONVERT_EXIT%"=="4" echo MESSAGE=The JSON cookie export could not be parsed
+    if "%COOKIE_CONVERT_EXIT%"=="5" echo MESSAGE=No usable cookies were found in that export
+    if "%COOKIE_CONVERT_EXIT%"=="6" echo MESSAGE=The cookie file format was not recognised
+    if not "%COOKIE_CONVERT_EXIT%"=="2" if not "%COOKIE_CONVERT_EXIT%"=="3" if not "%COOKIE_CONVERT_EXIT%"=="4" if not "%COOKIE_CONVERT_EXIT%"=="5" if not "%COOKIE_CONVERT_EXIT%"=="6" echo MESSAGE=The cookie file could not be imported
+    echo SOURCE_FILE=%COOKIE_SOURCE_PATH%
+    echo TARGET_FILE=%YT_COOKIES%
+    exit /b 2
+)
+echo STATUS=OK
+echo SOURCE_FILE=%COOKIE_SOURCE_PATH%
+echo TARGET_FILE=%YT_COOKIES%
+if defined COOKIE_BACKUP_TARGET echo PREVIOUS_ACTIVE_ARCHIVE=%COOKIE_BACKUP_TARGET%
+echo MESSAGE=Cookie file was imported or converted successfully
+exit /b 0
+
 :account_specific
 call :readtail 1 %*
 for /f "tokens=1,* delims= " %%A in ("%TAIL%") do (
@@ -494,7 +549,7 @@ if not exist "%COOKIE_STORE_DIR%\%COOKIE_NAME%" (
 set "COOKIE_BACKUP_TARGET="
 if exist "%YT_COOKIES%" (
     call :make_cookie_timestamp
-    set "COOKIE_BACKUP_TARGET=%COOKIE_STORE_DIR%\active-before-switch-%COOKIE_TIMESTAMP%.txt"
+    set "COOKIE_BACKUP_TARGET=%COOKIE_STORE_DIR%\active-before-switch-!COOKIE_TIMESTAMP!.txt"
     copy /y "%YT_COOKIES%" "%COOKIE_BACKUP_TARGET%" >nul
     if errorlevel 1 (
         echo STATUS=ERROR
@@ -590,6 +645,12 @@ exit /b 2
 :missing_saved_cookie_name
 echo STATUS=ERROR
 echo MESSAGE=Missing saved cookie file name
+echo HINT=Run "%~nx0 help" for usage
+exit /b 2
+
+:missing_cookie_source
+echo STATUS=ERROR
+echo MESSAGE=Missing cookie source file argument
 echo HINT=Run "%~nx0 help" for usage
 exit /b 2
 
@@ -1029,6 +1090,22 @@ if /I "!TASK_FIRST!"=="account" (
         call :runalias account-activate "!TASK_REST!"
         exit /b !errorlevel!
     )
+    if /I "!TASK_FIRST!"=="convert" (
+        if not defined TASK_REST (
+            call :missing_cookie_source
+            exit /b !errorlevel!
+        )
+        call :runalias account-convert "!TASK_REST!"
+        exit /b !errorlevel!
+    )
+    if /I "!TASK_FIRST!"=="import" (
+        if not defined TASK_REST (
+            call :missing_cookie_source
+            exit /b !errorlevel!
+        )
+        call :runalias account-convert "!TASK_REST!"
+        exit /b !errorlevel!
+    )
 )
 call :task_help
 exit /b !errorlevel!
@@ -1094,6 +1171,7 @@ echo   %~nx0 browser-formats ^<chrome^|edge^> "<url>"
 echo   %~nx0 browser-single ^<chrome^|edge^> "<url>"
 echo   %~nx0 account-status
 echo   %~nx0 account-list
+echo   %~nx0 account-convert "<source_cookie_file_or_path>"
 echo   %~nx0 account-video "<url>"
 echo   %~nx0 account-mp3 "<url>"
 echo   %~nx0 account-formats "<url>"
@@ -1146,6 +1224,7 @@ echo   %~nx0 task inspect account list
 echo   %~nx0 task inspect account formats "<url>"
 echo   %~nx0 task manage account archive
 echo   %~nx0 task manage account activate "<saved_cookie_file.txt>"
+echo   %~nx0 task manage account convert "<source_cookie_file_or_path>"
 echo.
 echo Notes:
 echo   - No prompts, no pauses, and non-zero exit codes on errors.
@@ -1157,6 +1236,7 @@ echo ACCOUNT_COOKIE_FILE=%YT_COOKIES%
 echo COOKIE_STORE_DIR=%COOKIE_STORE_DIR%
 echo   - account-archive saves the current active cookie into the store with a timestamped file name.
 echo   - account-activate swaps in a saved cookie file and automatically backs up the previous active one.
+echo   - account-convert can turn a JSON cookie export into the active Netscape cookie file used by yt-dlp.
 echo   - Local account mode uses a cookie file on this machine, not your password.
 exit /b 0
 
@@ -1246,8 +1326,26 @@ echo STATUS=ERROR
 echo MESSAGE=Local YouTube cookie file was not found
 echo COOKIE_FILE=%YT_COOKIES%
 echo COOKIE_STORE_DIR=%COOKIE_STORE_DIR%
-echo HINT=Export YouTube cookies in Netscape format to the COOKIE_FILE path above
+echo HINT=Export cookies, then use account-convert if your browser tool gives you JSON instead of Netscape format
 exit /b 1
+
+:resolve_cookie_source
+call set "COOKIE_SOURCE_RAW=%%%~1%%"
+set "%~2="
+if not defined COOKIE_SOURCE_RAW exit /b 0
+if exist "%COOKIE_SOURCE_RAW%" (
+    for %%A in ("%COOKIE_SOURCE_RAW%") do set "%~2=%%~fA"
+    exit /b 0
+)
+if exist "%PRIVATE_DIR%\%COOKIE_SOURCE_RAW%" (
+    for %%A in ("%PRIVATE_DIR%\%COOKIE_SOURCE_RAW%") do set "%~2=%%~fA"
+    exit /b 0
+)
+if exist "%COOKIE_STORE_DIR%\%COOKIE_SOURCE_RAW%" (
+    for %%A in ("%COOKIE_STORE_DIR%\%COOKIE_SOURCE_RAW%") do set "%~2=%%~fA"
+    exit /b 0
+)
+exit /b 0
 
 :count_saved_cookies
 set "SAVED_COOKIE_COUNT=0"
@@ -1269,7 +1367,7 @@ exit /b 0
 
 :make_cookie_timestamp
 set "COOKIE_TIMESTAMP="
-for /f "delims=" %%A in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'"') do (
+for /f "delims=" %%A in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH-mm-ss"') do (
     if not defined COOKIE_TIMESTAMP set "COOKIE_TIMESTAMP=%%A"
 )
 if not defined COOKIE_TIMESTAMP set "COOKIE_TIMESTAMP=manual-backup"
