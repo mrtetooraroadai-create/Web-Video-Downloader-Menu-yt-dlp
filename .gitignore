@@ -1,6 +1,9 @@
 # Local instructions
 AGENTS.md
 
+# Downloaded executables
+/*.exe
+
 # Local/private data
 /Private/*
 !/Private/.gitkeep
@@ -24,6 +27,8 @@ AGENTS.md
 /menu-improvements-ideas.txt
 /temp-menu-test.ps1
 /test-input-*.txt
+/github-upload-ready/
+/github-upload-ready.zip
 
 # Windows
 Thumbs.db
