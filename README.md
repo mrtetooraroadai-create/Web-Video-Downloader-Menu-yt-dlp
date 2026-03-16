@@ -13,6 +13,7 @@ It includes:
 
 - Requirements
 - Installation
+- Getting the Required Files
 - Usage
 - Human Menu
 - AI CLI
@@ -51,6 +52,36 @@ Downloads will be stored inside this project:
 Downloads\Videos
 Downloads\Music
 ```
+
+## Getting the Required Files
+
+1. Download `yt-dlp.exe`
+
+Use the official yt-dlp pages:
+
+- [yt-dlp installation guide](https://github.com/yt-dlp/yt-dlp/wiki/Installation)
+- [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)
+
+Put `yt-dlp.exe` in this project folder.
+
+2. Download FFmpeg
+
+Use the official FFmpeg download page:
+
+- [FFmpeg download page](https://www.ffmpeg.org/download.html)
+
+Download a Windows build, then extract:
+
+- `ffmpeg.exe`
+- `ffprobe.exe`
+
+Put both files in this project folder.
+
+3. Optional: install Node.js
+
+Node.js is optional.
+
+If Node.js is installed and available on `PATH`, the scripts will use it automatically.
 
 ## Usage
 
@@ -148,3 +179,5 @@ yt-dlp-ai.bat account-activate saved-cookie.txt
 - highest available quality depends on what YouTube exposes for each video
 - some videos offer `1080p60`, while others only offer `1080p` or lower
 - keep cookie files private
+- large `.exe` files can be awkward to upload through the GitHub website, so it may be easier to download them separately
+
