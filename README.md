@@ -66,16 +66,21 @@ Put `yt-dlp.exe` in this project folder.
 
 2. Download FFmpeg
 
-Use the official FFmpeg download page:
+Use the Windows builds from:
 
-- [FFmpeg download page](https://www.ffmpeg.org/download.html)
+- [Gyan.dev FFmpeg builds](https://www.gyan.dev/ffmpeg/builds/)
 
-Download a Windows build, then extract:
+For this project, the `ffmpeg-git-essentials.7z` build was used.
 
-- `ffmpeg.exe`
-- `ffprobe.exe`
+After downloading it:
 
-Put both files in this project folder.
+- extract the archive
+- open the `bin` folder inside it
+- take `ffmpeg.exe`
+- take `ffprobe.exe`
+- place both files in this project folder
+
+That is how the current project setup was made.
 
 3. Optional: install Node.js
 
@@ -180,4 +185,3 @@ yt-dlp-ai.bat account-activate saved-cookie.txt
 - some videos offer `1080p60`, while others only offer `1080p` or lower
 - keep cookie files private
 - large `.exe` files can be awkward to upload through the GitHub website, so it may be easier to download them separately
-
