@@ -1,0 +1,30 @@
+# Local instructions
+AGENTS.md
+
+# Local/private data
+/Private/*
+!/Private/.gitkeep
+/Private/Cookie Store/*
+!/Private/Cookie Store/.gitkeep
+
+# Downloaded output
+/Downloads/*
+!/Downloads/.gitkeep
+/Downloads/Videos/*
+!/Downloads/Videos/.gitkeep
+/Downloads/Music/*
+!/Downloads/Music/.gitkeep
+
+# Local backups
+/Old bat/*
+!/Old bat/.gitkeep
+
+# Local scratch and test files
+/chatgpt-share.html
+/menu-improvements-ideas.txt
+/temp-menu-test.ps1
+/test-input-*.txt
+
+# Windows
+Thumbs.db
+Desktop.ini
