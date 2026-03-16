@@ -42,6 +42,7 @@ Place these files in the project folder:
 yt-dlp.exe
 ffmpeg.exe
 ffprobe.exe
+cookie-convert.ps1
 yt-dlp-menu.bat
 yt-dlp-ai.bat
 ```
@@ -82,11 +83,21 @@ After downloading it:
 
 That is how the current project setup was made.
 
+For GitHub, it is usually better to upload only the scripts and documentation, then download `yt-dlp.exe`, `ffmpeg.exe`, and `ffprobe.exe` separately after cloning the project.
+
 3. Optional: install Node.js
 
 Node.js is optional.
 
 If Node.js is installed and available on `PATH`, the scripts will use it automatically.
+
+4. Optional: install a cookie export extension for logged-in YouTube downloads
+
+For this project, the cookie export extension used was:
+
+- [EXP Cookies Tool](https://chromewebstore.google.com/detail/exp-cookies-tool/gdbkinfablggfijnkinojceealciloeg)
+
+This is only needed if you want to use the logged-in YouTube account features.
 
 ## Usage
 
@@ -104,6 +115,7 @@ Main paths:
 - main menu `23` opens tools and settings
 - `23 -> 7` opens YouTube account tools
 - `23 -> 7 -> 6` opens the cookie manager
+- `23 -> 7 -> 6 -> 6` imports or converts an exported cookie file
 
 For video downloads, the menu can show the available qualities first.
 
@@ -148,6 +160,20 @@ Saved cookie store:
 
 ```text
 Private\Cookie Store\
+```
+
+If your browser tool exports JSON, such as a `cookies.txt` file from [EXP Cookies Tool](https://chromewebstore.google.com/detail/exp-cookies-tool/gdbkinfablggfijnkinojceealciloeg) or a similar cookie-export extension, you can convert it into the correct yt-dlp format.
+
+Human menu path:
+
+```text
+2 -> 23 -> 7 -> 6 -> 6
+```
+
+AI command:
+
+```bat
+yt-dlp-ai.bat account-convert cookies.txt
 ```
 
 Recommended logged-in quality flow:
