@@ -18,6 +18,7 @@ set "AUDIO_DIR=%DOWNLOAD_ROOT%\Music"
 set "PRIVATE_DIR=%SCRIPT_DIR%Private"
 set "YT_COOKIES=%PRIVATE_DIR%\youtube-cookies.txt"
 set "COOKIE_STORE_DIR=%PRIVATE_DIR%\Cookie Store"
+set "COOKIE_CONVERTER=%SCRIPT_DIR%cookie-convert.ps1"
 
 if not exist "%DOWNLOAD_ROOT%" mkdir "%DOWNLOAD_ROOT%"
 if not exist "%VIDEO_DIR%" mkdir "%VIDEO_DIR%"
@@ -760,10 +761,11 @@ echo STATUS
 echo   Not configured yet
 echo.
 echo To enable local account downloads:
-echo   1. Export your YouTube cookies in Netscape format.
-echo   2. Save the file here:
+echo   1. Export your YouTube cookies from your browser.
+echo   2. If the export is already Netscape format, save it here:
 echo      %YT_COOKIES%
-echo   3. Return to this menu and try again.
+echo   3. If the export is JSON, use Cookie File Manager to import and convert it.
+echo   4. Return to this menu and try again.
 echo.
 echo Your password is not stored in this menu.
 call :wait
@@ -794,10 +796,12 @@ echo 2. Open Private account folder
 echo 3. Open saved cookie store folder
 echo 4. Save the current active cookie into the store
 echo 5. Activate a saved cookie from the store
-echo 6. Return to YouTube account tools
+echo 6. Import or convert exported cookie file
+echo 7. Return to YouTube account tools
 echo.
-choice /c 123456 /n /m "Choose an option (1-6): "
-if errorlevel 6 goto account_tools
+choice /c 1234567 /n /m "Choose an option (1-7): "
+if errorlevel 7 goto account_tools
+if errorlevel 6 goto import_exported_cookie
 if errorlevel 5 goto activate_saved_cookie
 if errorlevel 4 goto archive_active_cookie
 if errorlevel 3 goto open_cookie_store
@@ -811,6 +815,89 @@ goto cookie_manager
 
 :open_cookie_store
 start "" "%COOKIE_STORE_DIR%"
+goto cookie_manager
+
+:import_exported_cookie
+call :header "Import or Convert Exported Cookies"
+if not exist "%COOKIE_CONVERTER%" (
+    echo The cookie converter script is missing:
+    echo   %COOKIE_CONVERTER%
+    call :wait
+    goto cookie_manager
+)
+echo PRIVATE FOLDER
+echo   %PRIVATE_DIR%
+echo.
+echo TEXT FILES FOUND
+set "COOKIE_FILE_LISTED="
+for /f "delims=" %%F in ('dir /b /a:-d "%PRIVATE_DIR%\*.txt" 2^>nul') do (
+    echo   %%F
+    set "COOKIE_FILE_LISTED=1"
+)
+if not defined COOKIE_FILE_LISTED (
+    echo   No .txt files were found in the Private folder.
+    echo.
+    echo Put your exported cookie file there first, then try again.
+    call :wait
+    goto cookie_manager
+)
+echo.
+echo If your exporter created JSON like cookies.txt, this option will convert it.
+echo If your file is already a Netscape cookie file, this option will copy it into place.
+echo.
+echo Type the file name exactly as shown above, or paste a full file path.
+echo Type C to cancel.
+echo.
+:import_exported_cookie_loop
+set "COOKIE_SOURCE_INPUT="
+set /p "COOKIE_SOURCE_INPUT=Cookie file to import: "
+set "COOKIE_SOURCE_INPUT=%COOKIE_SOURCE_INPUT:"=%"
+if not defined COOKIE_SOURCE_INPUT (
+    echo Please enter a file name, a full file path, or C to cancel.
+    goto import_exported_cookie_loop
+)
+if /I "%COOKIE_SOURCE_INPUT%"=="C" goto cookie_manager
+call :resolve_cookie_source COOKIE_SOURCE_INPUT COOKIE_SOURCE_PATH
+if not defined COOKIE_SOURCE_PATH (
+    echo I could not find that cookie file.
+    echo.
+    goto import_exported_cookie_loop
+)
+set "COOKIE_BACKUP_TARGET="
+if exist "%YT_COOKIES%" if /I not "%COOKIE_SOURCE_PATH%"=="%YT_COOKIES%" (
+    call :make_cookie_timestamp
+    set "COOKIE_BACKUP_TARGET=%COOKIE_STORE_DIR%\active-before-import-!COOKIE_TIMESTAMP!.txt"
+    copy /y "%YT_COOKIES%" "%COOKIE_BACKUP_TARGET%" >nul
+    if errorlevel 1 (
+        echo I could not back up the current active cookie before importing.
+        call :wait
+        goto cookie_manager
+    )
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%COOKIE_CONVERTER%" -Source "%COOKIE_SOURCE_PATH%" -Target "%YT_COOKIES%" >nul
+set "COOKIE_CONVERT_EXIT=%errorlevel%"
+if not "%COOKIE_CONVERT_EXIT%"=="0" (
+    echo The cookie file could not be imported.
+    echo.
+    if "%COOKIE_CONVERT_EXIT%"=="4" echo The file looked like JSON, but it could not be parsed.
+    if "%COOKIE_CONVERT_EXIT%"=="5" echo No usable cookies were found in that export.
+    if "%COOKIE_CONVERT_EXIT%"=="6" echo That file was not recognised as JSON or Netscape cookies.
+    if "%COOKIE_CONVERT_EXIT%"=="2" echo I could not find the source file anymore.
+    if "%COOKIE_CONVERT_EXIT%"=="3" echo The source file was empty.
+    call :wait
+    goto cookie_manager
+)
+echo The active cookie file is ready:
+echo   %YT_COOKIES%
+echo.
+echo Imported from:
+echo   %COOKIE_SOURCE_PATH%
+if defined COOKIE_BACKUP_TARGET (
+    echo.
+    echo Your previous active cookie was backed up here:
+    echo   %COOKIE_BACKUP_TARGET%
+)
+call :wait
 goto cookie_manager
 
 :archive_active_cookie
@@ -871,7 +958,7 @@ if not exist "%COOKIE_STORE_DIR%\%COOKIE_SELECTION%" (
 set "COOKIE_BACKUP_TARGET="
 if exist "%YT_COOKIES%" (
     call :make_cookie_timestamp
-    set "COOKIE_BACKUP_TARGET=%COOKIE_STORE_DIR%\active-before-switch-%COOKIE_TIMESTAMP%.txt"
+    set "COOKIE_BACKUP_TARGET=%COOKIE_STORE_DIR%\active-before-switch-!COOKIE_TIMESTAMP!.txt"
     copy /y "%YT_COOKIES%" "%COOKIE_BACKUP_TARGET%" >nul
     if errorlevel 1 (
         echo I could not back up the current active cookie before switching.
@@ -1122,10 +1209,11 @@ echo I could not find the local YouTube cookie file:
 echo   %YT_COOKIES%
 echo.
 echo To enable account downloads:
-echo   1. Export your YouTube cookies in Netscape format.
-echo   2. Save the file at the path above.
-echo   3. Or use the Cookie File Manager to activate a saved cookie.
-echo   4. Run this option again.
+echo   1. Export your YouTube cookies from your browser.
+echo   2. Save the file at the path above if it is already Netscape format.
+echo   3. If the export is JSON, use Cookie File Manager to import and convert it.
+echo   4. Or use the Cookie File Manager to activate a saved cookie.
+echo   5. Run this option again.
 echo.
 echo Your password is not stored in this menu.
 call :wait
@@ -1138,9 +1226,27 @@ for %%F in ("%COOKIE_STORE_DIR%\*.txt") do (
 )
 goto :eof
 
+:resolve_cookie_source
+call set "COOKIE_SOURCE_RAW=%%%~1%%"
+set "%~2="
+if not defined COOKIE_SOURCE_RAW goto :eof
+if exist "%COOKIE_SOURCE_RAW%" (
+    for %%A in ("%COOKIE_SOURCE_RAW%") do set "%~2=%%~fA"
+    goto :eof
+)
+if exist "%PRIVATE_DIR%\%COOKIE_SOURCE_RAW%" (
+    for %%A in ("%PRIVATE_DIR%\%COOKIE_SOURCE_RAW%") do set "%~2=%%~fA"
+    goto :eof
+)
+if exist "%COOKIE_STORE_DIR%\%COOKIE_SOURCE_RAW%" (
+    for %%A in ("%COOKIE_STORE_DIR%\%COOKIE_SOURCE_RAW%") do set "%~2=%%~fA"
+    goto :eof
+)
+goto :eof
+
 :make_cookie_timestamp
 set "COOKIE_TIMESTAMP="
-for /f "delims=" %%A in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'"') do (
+for /f "delims=" %%A in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH-mm-ss"') do (
     if not defined COOKIE_TIMESTAMP set "COOKIE_TIMESTAMP=%%A"
 )
 if not defined COOKIE_TIMESTAMP set "COOKIE_TIMESTAMP=manual-backup"
